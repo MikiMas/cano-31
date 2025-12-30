@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-type ChallengeCard = { id: string; title: string; description: string; completed: boolean };
+type ChallengeCard = { id: string; title: string; description: string; completed: boolean; hasMedia?: boolean };
 
 async function fetchJson<T>(
   input: RequestInfo | URL,
@@ -37,6 +37,8 @@ export function ChallengesSection({
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [mediaPreviewById, setMediaPreviewById] = useState<Record<string, { url: string; mime: string }>>({});
 
   const title = useMemo(() => `Tus retos (${challenges.length || 3})`, [challenges.length]);
 
@@ -88,6 +90,38 @@ export function ChallengesSection({
     await onRefreshAll();
   }
 
+  async function uploadMedia(playerChallengeId: string, file: File) {
+    setError(null);
+    setUploadingId(playerChallengeId);
+    try {
+      const form = new FormData();
+      form.set("playerChallengeId", playerChallengeId);
+      form.set("file", file);
+
+      const res = await fetchJson<{ ok: true; media: { path: string; mime: string; url?: string } }>("/api/upload", {
+        method: "POST",
+        headers: { ...authHeaders },
+        body: form
+      });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          onNeedsAuthReset();
+          return;
+        }
+        setError(res.error);
+        return;
+      }
+
+      setChallenges((prev) => prev.map((c) => (c.id === playerChallengeId ? { ...c, hasMedia: true } : c)));
+      if (res.data.media.url) {
+        setMediaPreviewById((m) => ({ ...m, [playerChallengeId]: { url: res.data.media.url!, mime: res.data.media.mime } }));
+      }
+    } finally {
+      setUploadingId((v) => (v === playerChallengeId ? null : v));
+    }
+  }
+
   return (
     <section className="card">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -129,22 +163,84 @@ export function ChallengesSection({
           >
             <div style={{ fontWeight: 800 }}>{c.title}</div>
             <div style={{ marginTop: 6, color: "var(--muted)", lineHeight: 1.45 }}>{c.description}</div>
+
+            <div className="row" style={{ marginTop: 10, justifyContent: "space-between" }}>
+              <label
+                style={{
+                  flex: 1,
+                  display: "grid",
+                  gap: 8
+                }}
+              >
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  capture="environment"
+                  disabled={c.completed || uploadingId === c.id}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    uploadMedia(c.id, f).catch(() => {});
+                    e.currentTarget.value = "";
+                  }}
+                  style={{ display: "none" }}
+                />
+                <span
+                  style={{
+                    width: "100%",
+                    display: "inline-block",
+                    textAlign: "center",
+                    padding: "12px 12px",
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "rgba(124, 92, 255, 0.18)",
+                    color: "var(--text)",
+                    fontWeight: 800,
+                    cursor: c.completed ? "not-allowed" : "pointer",
+                    opacity: c.completed ? 0.6 : 1
+                  }}
+                >
+                  {uploadingId === c.id ? "Subiendo..." : c.hasMedia ? "Cambiar foto/vídeo" : "Subir foto/vídeo"}
+                </span>
+              </label>
+            </div>
+
+            {mediaPreviewById[c.id] ? (
+              <div style={{ marginTop: 10 }}>
+                {mediaPreviewById[c.id]!.mime.startsWith("image/") ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={mediaPreviewById[c.id]!.url}
+                    alt="media"
+                    style={{ width: "100%", borderRadius: 12, border: "1px solid var(--border)" }}
+                  />
+                ) : (
+                  <video
+                    src={mediaPreviewById[c.id]!.url}
+                    controls
+                    style={{ width: "100%", borderRadius: 12, border: "1px solid var(--border)" }}
+                  />
+                )}
+              </div>
+            ) : null}
+
             <button
               onClick={() => complete(c.id)}
-              disabled={c.completed}
+              disabled={c.completed || !c.hasMedia}
               style={{
                 marginTop: 10,
                 width: "100%",
                 padding: "12px 12px",
                 borderRadius: 12,
                 border: "1px solid var(--border)",
-                background: c.completed ? "rgba(255,255,255,0.06)" : "rgba(34, 197, 94, 0.18)",
+                background:
+                  c.completed || !c.hasMedia ? "rgba(255,255,255,0.06)" : "rgba(34, 197, 94, 0.18)",
                 color: "var(--text)",
                 fontWeight: 800,
-                opacity: c.completed ? 0.7 : 1
+                opacity: c.completed || !c.hasMedia ? 0.7 : 1
               }}
             >
-              {c.completed ? "Completado" : "Marcar como completado"}
+              {c.completed ? "Completado" : c.hasMedia ? "Marcar como completado" : "Sube foto/vídeo para completar"}
             </button>
           </div>
         ))}
@@ -152,4 +248,3 @@ export function ChallengesSection({
     </section>
   );
 }
-

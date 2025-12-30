@@ -87,7 +87,7 @@ export default function HomePage() {
           paused: false;
           blockStart: string;
           nextBlockInSec: number;
-          challenges: { id: string; title: string; description: string; completed: boolean }[];
+          challenges: { id: string; title: string; description: string; completed: boolean; hasMedia: boolean }[];
         }
     >("/api/challenges", { headers: { ...authHeaders }, cache: "no-store" });
 

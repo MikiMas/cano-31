@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NEXT_DISABLE_WEBPACK_CACHE=1 next dev",
+    "clean": "rimraf .next",
+    "dev:clean": "npm run clean && npm run dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -25,6 +27,7 @@
     "cross-env": "^7.0.3",
     "eslint": "^9.17.0",
     "eslint-config-next": "15.4.10",
+    "rimraf": "^6.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

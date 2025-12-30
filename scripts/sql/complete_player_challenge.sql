@@ -26,6 +26,7 @@ begin
     and pc.player_id = p_player_id
     and pc.block_start = p_block_start
     and pc.completed = false;
+    and pc.media_path is not null;
 
   did_complete := found;
 
@@ -43,4 +44,3 @@ begin
   return query select new_points, did_complete;
 end;
 $$;
-

@@ -82,6 +82,13 @@ export async function GET(req: Request) {
     .update({ last_seen_at: now.toISOString() })
     .eq("session_token", sessionToken);
 
+  const ids = (assigned ?? []).map((c) => c.player_challenge_id);
+  const { data: mediaRows } =
+    ids.length === 0
+      ? { data: [] as { id: string; media_path: string | null }[] }
+      : await supabase.from("player_challenges").select("id,media_path").in("id", ids);
+  const hasMediaById = new Map((mediaRows ?? []).map((r: any) => [String(r.id), Boolean(r.media_path)]));
+
   return NextResponse.json({
     paused: false,
     blockStart: blockStart.toISOString(),
@@ -90,7 +97,8 @@ export async function GET(req: Request) {
       id: c.player_challenge_id,
       title: c.title,
       description: c.description,
-      completed: c.completed
+      completed: c.completed,
+      hasMedia: hasMediaById.get(c.player_challenge_id) ?? false
     }))
   });
 }

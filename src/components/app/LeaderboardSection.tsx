@@ -32,9 +32,7 @@ export function LeaderboardSection({
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
-
-  const top10 = useMemo(() => leaders.slice(0, 10), [leaders]);
+  const visible = useMemo(() => leaders.slice(0, 50), [leaders]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,71 +86,75 @@ export function LeaderboardSection({
 
       {error ? <div style={{ marginTop: 10, color: "#fecaca", fontSize: 14 }}>{error}</div> : null}
 
-      <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-        {top10.map((l, idx) => (
-          <div
-            key={`${l.nickname}-${idx}`}
-            className="row"
-            style={{
-              justifyContent: "space-between",
-              padding: 10,
-              borderRadius: 12,
-              border: "1px solid var(--border)",
-              background: "rgba(0,0,0,0.18)"
-            }}
-          >
-            <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-              <div style={{ width: 22, color: "var(--muted)", fontSize: 13 }}>#{idx + 1}</div>
-              <div style={{ fontWeight: 800 }}>{l.nickname}</div>
-            </div>
-            <div className="pill">
-              <strong>{l.points}</strong>
-            </div>
-          </div>
-        ))}
-      </div>
+      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+        {visible.map((l, idx) => {
+          const rank = idx + 1;
+          const isTop3 = rank <= 3;
+          const bg =
+            rank === 1
+              ? "linear-gradient(135deg, rgba(250,204,21,0.22), rgba(255,255,255,0.04))"
+              : rank === 2
+                ? "linear-gradient(135deg, rgba(148,163,184,0.22), rgba(255,255,255,0.04))"
+                : rank === 3
+                  ? "linear-gradient(135deg, rgba(245,158,11,0.20), rgba(255,255,255,0.04))"
+                  : "rgba(0,0,0,0.18)";
 
-      <div className="row" style={{ marginTop: 12, justifyContent: "space-between" }}>
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 12,
-            border: "1px solid var(--border)",
-            background: "rgba(124, 92, 255, 0.18)",
-            color: "var(--text)",
-            fontWeight: 800,
-            width: "100%"
-          }}
-        >
-          {expanded ? "Ocultar" : "Ver más"}
-        </button>
-      </div>
+          const borderColor =
+            rank === 1
+              ? "rgba(250, 204, 21, 0.45)"
+              : rank === 2
+                ? "rgba(148, 163, 184, 0.45)"
+                : rank === 3
+                  ? "rgba(245, 158, 11, 0.35)"
+                  : "var(--border)";
 
-      {expanded ? (
-        <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-          {leaders.slice(0, 50).map((l, idx) => (
+          return (
             <div
-              key={`${l.nickname}-all-${idx}`}
-              className="row"
+              key={`${l.nickname}-${idx}`}
               style={{
-                justifyContent: "space-between",
-                padding: 10,
-                borderRadius: 12,
-                border: "1px solid var(--border)",
-                background: "rgba(255,255,255,0.04)"
+                padding: rank === 1 ? 16 : rank === 2 ? 15 : rank === 3 ? 14 : 10,
+                borderRadius: 14,
+                border: `1px solid ${borderColor}`,
+                background: bg,
+                overflow: "hidden"
               }}
             >
-              <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-                <div style={{ width: 28, color: "var(--muted)", fontSize: 13 }}>#{idx + 1}</div>
-                <div style={{ fontWeight: 700 }}>{l.nickname}</div>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                  <div
+                    style={{
+                      width: isTop3 ? 30 : 28,
+                      color: "var(--muted)",
+                      fontSize: rank === 1 ? 16 : rank === 2 ? 15 : rank === 3 ? 14 : 13,
+                      fontWeight: 800
+                    }}
+                  >
+                    #{rank}
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: isTop3 ? 900 : 700,
+                      fontSize: rank === 1 ? 20 : rank === 2 ? 19 : rank === 3 ? 18 : 15
+                    }}
+                  >
+                    {l.nickname}
+                  </div>
+                </div>
+                <div
+                  className="pill"
+                  style={{
+                    fontSize: rank === 1 ? 16 : rank === 2 ? 15 : rank === 3 ? 15 : 14,
+                    borderColor: borderColor,
+                    background: "rgba(255,255,255,0.06)"
+                  }}
+                >
+                  <strong>{l.points}</strong>
+                </div>
               </div>
-              <div style={{ color: "var(--text)", fontWeight: 800 }}>{l.points}</div>
             </div>
-          ))}
-        </div>
-      ) : null}
+          );
+        })}
+      </div>
     </section>
   );
 }
-

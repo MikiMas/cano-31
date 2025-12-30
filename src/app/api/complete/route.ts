@@ -59,4 +59,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, points: row.points, completedNow: row.completed_now });
 }
-

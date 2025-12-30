@@ -42,7 +42,7 @@ a {
   display: flex;
   gap: 12px;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -56,6 +56,18 @@ a {
 .brand {
   font-weight: 700;
   letter-spacing: 0.4px;
+}
+
+.brandHero {
+  font-weight: 900;
+  letter-spacing: 1.2px;
+  font-size: 24px;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, rgba(124, 92, 255, 1), rgba(250, 204, 21, 1), rgba(34, 197, 94, 1));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-align: center;
 }
 
 .nav {
@@ -123,4 +135,3 @@ a {
     font-size: 15px;
   }
 }
-
