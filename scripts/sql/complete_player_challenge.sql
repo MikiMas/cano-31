@@ -26,7 +26,7 @@ begin
     and pc.player_id = p_player_id
     and pc.block_start = p_block_start
     and pc.completed = false;
-    and pc.media_path is not null;
+    and pc.media_url is not null;
 
   did_complete := found;
 

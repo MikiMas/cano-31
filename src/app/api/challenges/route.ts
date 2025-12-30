@@ -85,9 +85,14 @@ export async function GET(req: Request) {
   const ids = (assigned ?? []).map((c) => c.player_challenge_id);
   const { data: mediaRows } =
     ids.length === 0
-      ? { data: [] as { id: string; media_path: string | null }[] }
-      : await supabase.from("player_challenges").select("id,media_path").in("id", ids);
-  const hasMediaById = new Map((mediaRows ?? []).map((r: any) => [String(r.id), Boolean(r.media_path)]));
+      ? { data: [] as { id: string; media_url: string | null; media_type: string | null; media_mime: string | null }[] }
+      : await supabase.from("player_challenges").select("id,media_url,media_type,media_mime").in("id", ids);
+  const mediaById = new Map(
+    (mediaRows ?? []).map((r: any) => [
+      String(r.id),
+      { url: r.media_url ?? null, type: r.media_type ?? null, mime: r.media_mime ?? null }
+    ])
+  );
 
   return NextResponse.json({
     paused: false,
@@ -98,7 +103,8 @@ export async function GET(req: Request) {
       title: c.title,
       description: c.description,
       completed: c.completed,
-      hasMedia: hasMediaById.get(c.player_challenge_id) ?? false
+      hasMedia: Boolean(mediaById.get(c.player_challenge_id)?.url),
+      media: mediaById.get(c.player_challenge_id) ?? null
     }))
   });
 }

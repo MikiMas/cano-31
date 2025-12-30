@@ -40,7 +40,8 @@ export function ChallengesSection({
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [mediaPreviewById, setMediaPreviewById] = useState<Record<string, { url: string; mime: string }>>({});
 
-  const title = useMemo(() => `Tus retos (${challenges.length || 3})`, [challenges.length]);
+  const completedCount = useMemo(() => challenges.filter((c) => c.completed).length, [challenges]);
+  const title = useMemo(() => `Tus retos (${completedCount}/${challenges.length || 3})`, [completedCount, challenges.length]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,11 +99,14 @@ export function ChallengesSection({
       form.set("playerChallengeId", playerChallengeId);
       form.set("file", file);
 
-      const res = await fetchJson<{ ok: true; media: { path: string; mime: string; url?: string } }>("/api/upload", {
-        method: "POST",
-        headers: { ...authHeaders },
-        body: form
-      });
+      const res = await fetchJson<{ ok: true; media: { url: string; mime: string; type: "image" | "video" } }>(
+        "/api/upload",
+        {
+          method: "POST",
+          headers: { ...authHeaders },
+          body: form
+        }
+      );
 
       if (!res.ok) {
         if (res.status === 401) {
@@ -114,9 +118,7 @@ export function ChallengesSection({
       }
 
       setChallenges((prev) => prev.map((c) => (c.id === playerChallengeId ? { ...c, hasMedia: true } : c)));
-      if (res.data.media.url) {
-        setMediaPreviewById((m) => ({ ...m, [playerChallengeId]: { url: res.data.media.url!, mime: res.data.media.mime } }));
-      }
+      setMediaPreviewById((m) => ({ ...m, [playerChallengeId]: { url: res.data.media.url, mime: res.data.media.mime } }));
     } finally {
       setUploadingId((v) => (v === playerChallengeId ? null : v));
     }

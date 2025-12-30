@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { readSessionTokenFromRequest, validateUuid } from "@/lib/validators";
-import { getBlockStartUTC } from "@/lib/timeBlock";
 
 export const runtime = "nodejs";
 
-const BUCKET = "challenge-media";
-const MAX_BYTES = 25 * 1024 * 1024;
+const BUCKET = "retos";
+const MAX_BYTES = 500 * 1024 * 1024;
 
 type SessionRow = { player_id: string };
 type PlayerChallengeRow = { id: string; player_id: string; block_start: string };
@@ -15,6 +14,10 @@ function extFromMime(mime: string): string {
   if (mime.startsWith("image/")) return mime.split("/")[1] ? `.${mime.split("/")[1]}` : ".jpg";
   if (mime.startsWith("video/")) return mime.split("/")[1] ? `.${mime.split("/")[1]}` : ".mp4";
   return "";
+}
+
+function mediaTypeFromMime(mime: string): "image" | "video" {
+  return mime.startsWith("video/") ? "video" : "image";
 }
 
 export async function POST(req: Request) {
@@ -55,7 +58,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "FILE_TOO_LARGE" }, { status: 400 });
   }
 
-  const blockStart = getBlockStartUTC(new Date()).toISOString();
   const { data: pc, error: pcError } = await supabase
     .from("player_challenges")
     .select("id,player_id,block_start")
@@ -63,11 +65,12 @@ export async function POST(req: Request) {
     .maybeSingle<PlayerChallengeRow>();
 
   if (pcError) return NextResponse.json({ ok: false, error: pcError.message }, { status: 500 });
-  if (!pc || pc.player_id !== session.player_id || pc.block_start !== blockStart) {
+  if (!pc || pc.player_id !== session.player_id) {
     return NextResponse.json({ ok: false, error: "NOT_ALLOWED" }, { status: 403 });
   }
 
-  const path = `${session.player_id}/${blockStart}/${pc.id}${extFromMime(mime)}`;
+  const blockStartIso = new Date(pc.block_start).toISOString();
+  const path = `${session.player_id}/${blockStartIso}/${pc.id}${extFromMime(mime)}`;
   const arrayBuffer = await file.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
 
@@ -83,16 +86,20 @@ export async function POST(req: Request) {
     );
   }
 
+  const publicUrl = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  const mediaType = mediaTypeFromMime(mime);
+
   const { error: updateError } = await supabase
     .from("player_challenges")
-    .update({ media_path: path, media_mime: mime })
+    .update({
+      media_url: publicUrl,
+      media_type: mediaType,
+      media_mime: mime,
+      media_uploaded_at: new Date().toISOString()
+    })
     .eq("id", pc.id);
 
   if (updateError) return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
 
-  const { data: signed, error: signError } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 10);
-  if (signError) return NextResponse.json({ ok: true, media: { path, mime } });
-
-  return NextResponse.json({ ok: true, media: { path, mime, url: signed.signedUrl } });
+  return NextResponse.json({ ok: true, media: { url: publicUrl, mime, type: mediaType } });
 }
-

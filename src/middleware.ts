@@ -33,6 +33,8 @@ function withApiHeaders(res: NextResponse, req: NextRequest): NextResponse {
 
 export function middleware(req: NextRequest) {
   if (!req.nextUrl.pathname.startsWith("/api/")) return NextResponse.next();
+  // Avoid cloning large multipart bodies for upload endpoint.
+  if (req.nextUrl.pathname === "/api/upload") return NextResponse.next();
 
   if (req.method === "OPTIONS") {
     return withApiHeaders(new NextResponse(null, { status: 204 }), req);
@@ -44,4 +46,3 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: ["/api/:path*"]
 };
-

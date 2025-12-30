@@ -4,14 +4,13 @@ import { validateUuid } from "@/lib/validators";
 
 export const runtime = "nodejs";
 
-const BUCKET = "challenge-media";
-
 type PlayerRow = { id: string; nickname: string; points: number; created_at: string };
 type CompletedRow = {
   id: string;
   completed_at: string | null;
   block_start: string;
-  media_path: string | null;
+  media_url: string | null;
+  media_type: string | null;
   media_mime: string | null;
   challenges: { title: string; description: string | null } | null;
 };
@@ -35,7 +34,7 @@ export async function GET(req: Request) {
 
   const { data: rows, error: rowsError } = await supabase
     .from("player_challenges")
-    .select("id,completed_at,block_start,media_path,media_mime, challenges ( title, description )")
+    .select("id,completed_at,block_start,media_url,media_type,media_mime, challenges ( title, description )")
     .eq("player_id", player.id)
     .eq("completed", true)
     .order("completed_at", { ascending: false })
@@ -44,24 +43,14 @@ export async function GET(req: Request) {
 
   if (rowsError) return NextResponse.json({ ok: false, error: rowsError.message }, { status: 500 });
 
-  const completed = await Promise.all(
-    (rows ?? []).map(async (r) => {
-      let url: string | null = null;
-      if (r.media_path) {
-        const signed = await supabase.storage.from(BUCKET).createSignedUrl(r.media_path, 60 * 10);
-        if (!signed.error) url = signed.data.signedUrl;
-      }
-      return {
-        id: r.id,
-        title: r.challenges?.title ?? "(sin título)",
-        description: r.challenges?.description ?? "",
-        completedAt: r.completed_at,
-        blockStart: r.block_start,
-        media: r.media_path ? { path: r.media_path, mime: r.media_mime ?? "", url } : null
-      };
-    })
-  );
+  const completed = (rows ?? []).map((r) => ({
+    id: r.id,
+    title: r.challenges?.title ?? "(sin título)",
+    description: r.challenges?.description ?? "",
+    completedAt: r.completed_at,
+    blockStart: r.block_start,
+    media: r.media_url ? { path: r.media_url, mime: r.media_mime ?? "", url: r.media_url } : null
+  }));
 
   return NextResponse.json({ ok: true, player, completed });
 }
-
