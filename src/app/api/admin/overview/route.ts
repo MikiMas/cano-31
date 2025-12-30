@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireAdminCookie } from "@/lib/adminSession";
 import { getBlockStartUTC, secondsToNextBlock } from "@/lib/timeBlock";
 
 export const runtime = "nodejs";
@@ -12,8 +11,6 @@ type AdminSettingsRow = { game_status: string | null };
 
 export async function GET(req: Request) {
   try {
-    requireAdminCookie(req);
-
     const supabase = supabaseAdmin();
     const now = new Date();
     const blockStart = getBlockStartUTC(now);
@@ -70,8 +67,6 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    const status = message === "UNAUTHORIZED" ? 401 : 500;
-    return NextResponse.json({ ok: false, error: message }, { status });
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
-
