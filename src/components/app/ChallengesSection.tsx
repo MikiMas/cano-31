@@ -1,0 +1,155 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+type ChallengeCard = { id: string; title: string; description: string; completed: boolean };
+
+async function fetchJson<T>(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<{ ok: true; data: T } | { ok: false; status: number; error: string }> {
+  try {
+    const res = await fetch(input, init);
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: (json as any)?.error ?? "REQUEST_FAILED" };
+    }
+    return { ok: true, data: json as T };
+  } catch {
+    return { ok: false, status: 0, error: "NETWORK_ERROR" };
+  }
+}
+
+export function ChallengesSection({
+  authHeaders,
+  blockStart,
+  onPointsUpdate,
+  onNeedsAuthReset,
+  onRefreshAll
+}: {
+  authHeaders: Record<string, string>;
+  blockStart: string | null;
+  onPointsUpdate: (points: number) => void;
+  onNeedsAuthReset: () => void;
+  onRefreshAll: () => Promise<any> | void;
+}) {
+  const [challenges, setChallenges] = useState<ChallengeCard[]>([]);
+  const [paused, setPaused] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const title = useMemo(() => `Tus retos (${challenges.length || 3})`, [challenges.length]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const res = await fetchJson<
+      | { paused: true; nextBlockInSec: number; blockStart: string }
+      | { paused: false; nextBlockInSec: number; blockStart: string; challenges: ChallengeCard[] }
+    >("/api/challenges", { headers: { ...authHeaders }, cache: "no-store" });
+    setLoading(false);
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        onNeedsAuthReset();
+        return;
+      }
+      setError(res.error);
+      return;
+    }
+
+    setPaused(res.data.paused);
+    setChallenges(res.data.paused ? [] : res.data.challenges);
+  }, [authHeaders, onNeedsAuthReset]);
+
+  useEffect(() => {
+    load().catch(() => {});
+  }, [load, blockStart]);
+
+  async function complete(id: string) {
+    setError(null);
+    const res = await fetchJson<{ ok: true; points: number; completedNow: boolean }>("/api/complete", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...authHeaders },
+      body: JSON.stringify({ playerChallengeId: id })
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        onNeedsAuthReset();
+        return;
+      }
+      setError(res.error);
+      return;
+    }
+
+    onPointsUpdate(res.data.points);
+    setChallenges((prev) => prev.map((c) => (c.id === id ? { ...c, completed: true } : c)));
+    await onRefreshAll();
+  }
+
+  return (
+    <section className="card">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
+        <button
+          onClick={() => load()}
+          disabled={loading}
+          style={{
+            padding: "8px 10px",
+            borderRadius: 12,
+            border: "1px solid var(--border)",
+            background: "rgba(255,255,255,0.06)",
+            color: "var(--text)",
+            fontWeight: 700
+          }}
+        >
+          {loading ? "..." : "Actualizar"}
+        </button>
+      </div>
+
+      {paused ? (
+        <p style={{ margin: "10px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
+          Juego en pausa. No se asignan retos ahora.
+        </p>
+      ) : null}
+
+      {error ? <div style={{ marginTop: 10, color: "#fecaca", fontSize: 14 }}>{error}</div> : null}
+
+      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+        {paused ? null : challenges.map((c) => (
+          <div
+            key={c.id}
+            style={{
+              padding: 12,
+              borderRadius: 12,
+              border: "1px solid var(--border)",
+              background: c.completed ? "rgba(34, 197, 94, 0.12)" : "rgba(0,0,0,0.18)"
+            }}
+          >
+            <div style={{ fontWeight: 800 }}>{c.title}</div>
+            <div style={{ marginTop: 6, color: "var(--muted)", lineHeight: 1.45 }}>{c.description}</div>
+            <button
+              onClick={() => complete(c.id)}
+              disabled={c.completed}
+              style={{
+                marginTop: 10,
+                width: "100%",
+                padding: "12px 12px",
+                borderRadius: 12,
+                border: "1px solid var(--border)",
+                background: c.completed ? "rgba(255,255,255,0.06)" : "rgba(34, 197, 94, 0.18)",
+                color: "var(--text)",
+                fontWeight: 800,
+                opacity: c.completed ? 0.7 : 1
+              }}
+            >
+              {c.completed ? "Completado" : "Marcar como completado"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
