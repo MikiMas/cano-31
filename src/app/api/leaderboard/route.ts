@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { requirePlayerFromSession } from "@/lib/sessionPlayer";
 
 export const runtime = "nodejs";
 
@@ -38,10 +39,18 @@ export async function GET(req: Request) {
   if (limited) return limited;
 
   const supabase = supabaseAdmin();
+  let roomId = "";
+  try {
+    const { player } = await requirePlayerFromSession(req);
+    roomId = player.room_id;
+  } catch {
+    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+  }
 
   const { data, error } = await supabase
     .from("players")
     .select("nickname,points")
+    .eq("room_id", roomId)
     .order("points", { ascending: false })
     .order("created_at", { ascending: true })
     .limit(50)

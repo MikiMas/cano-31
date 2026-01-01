@@ -18,6 +18,10 @@ body {
   height: 100%;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji",
@@ -25,6 +29,7 @@ body {
   background: radial-gradient(1200px 600px at 50% -200px, rgba(124, 92, 255, 0.35), transparent 55%),
     var(--bg);
   color: var(--text);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 a {
@@ -35,7 +40,7 @@ a {
 .container {
   max-width: 920px;
   margin: 0 auto;
-  padding: 16px;
+  padding: clamp(14px, 3.5vw, 24px);
   position: relative;
 }
 
@@ -277,4 +282,26 @@ body::before {
   .nav {
     font-size: 15px;
   }
+}
+
+@media (max-width: 480px) {
+  .row {
+    align-items: stretch;
+  }
+  .header {
+    top: 10px;
+  }
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+input,
+button,
+select,
+textarea {
+  font-size: 16px;
 }

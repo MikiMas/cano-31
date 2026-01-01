@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { readSessionTokenFromRequest, validateUuid } from "@/lib/validators";
-import { getBlockStartUTC } from "@/lib/timeBlock";
+import { validateUuid } from "@/lib/validators";
+import { requirePlayerFromSession } from "@/lib/sessionPlayer";
+import { getBlockStartFromAnchor } from "@/lib/timeBlock";
 
 export const runtime = "nodejs";
 
-type SessionRow = { player_id: string };
 type CompleteResultRow = { points: number; completed_now: boolean };
 
 export async function POST(req: Request) {
-  const sessionToken = readSessionTokenFromRequest(req);
-  if (!sessionToken) {
-    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
-  }
-
   const body = (await req.json().catch(() => null)) as { playerChallengeId?: unknown } | null;
   const playerChallengeId = body?.playerChallengeId;
   if (!validateUuid(playerChallengeId)) {
@@ -21,24 +16,48 @@ export async function POST(req: Request) {
   }
 
   const supabase = supabaseAdmin();
-
-  const { data: session, error: sessionError } = await supabase
-    .from("player_sessions")
-    .select("player_id")
-    .eq("session_token", sessionToken)
-    .maybeSingle<SessionRow>();
-
-  if (sessionError) {
-    return NextResponse.json({ ok: false, error: sessionError.message }, { status: 500 });
-  }
-  if (!session) {
-    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+  let playerId = "";
+  let roomId = "";
+  try {
+    const { player } = await requirePlayerFromSession(req);
+    playerId = player.id;
+    roomId = player.room_id;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "UNAUTHORIZED";
+    const status = msg === "UNAUTHORIZED" ? 401 : 500;
+    return NextResponse.json({ ok: false, error: msg }, { status });
   }
 
-  const blockStart = getBlockStartUTC(new Date());
+  const { data: room, error: roomError } = await supabase
+    .from("rooms")
+    .select("rounds")
+    .eq("id", roomId)
+    .maybeSingle<{ rounds: number }>();
+  if (roomError || !room) return NextResponse.json({ ok: false, error: roomError?.message ?? "ROOM_NOT_FOUND" }, { status: 500 });
+
+  const { data: settings } = await supabase
+    .from("room_settings")
+    .select("game_started_at,game_status")
+    .eq("room_id", roomId)
+    .maybeSingle<{ game_started_at: string | null; game_status: string }>();
+
+  const startedAtIso = settings?.game_started_at ?? null;
+  if (!startedAtIso) return NextResponse.json({ ok: false, error: "GAME_NOT_STARTED" }, { status: 403 });
+  if ((settings?.game_status ?? "running").toLowerCase() === "paused") {
+    return NextResponse.json({ ok: false, error: "PAUSED" }, { status: 403 });
+  }
+
+  const startedAt = new Date(startedAtIso);
+  const rounds = Math.min(9, Math.max(1, Math.floor(room.rounds ?? 1)));
+  const endsAt = new Date(startedAt.getTime() + rounds * 30 * 60 * 1000);
+  const now = new Date();
+  if (now.getTime() >= endsAt.getTime()) return NextResponse.json({ ok: false, error: "ENDED" }, { status: 403 });
+
+  const blockStart = getBlockStartFromAnchor(now, startedAt);
 
   const { data, error } = (await supabase.rpc("complete_player_challenge", {
-    p_player_id: session.player_id,
+    p_room_id: roomId,
+    p_player_id: playerId,
     p_player_challenge_id: playerChallengeId.trim(),
     p_block_start: blockStart.toISOString()
   })) as { data: CompleteResultRow[] | null; error: { message: string } | null };
@@ -51,11 +70,6 @@ export async function POST(req: Request) {
   if (!row) {
     return NextResponse.json({ ok: false, error: "COMPLETE_FAILED" }, { status: 500 });
   }
-
-  await supabase
-    .from("player_sessions")
-    .update({ last_seen_at: new Date().toISOString() })
-    .eq("session_token", sessionToken);
 
   return NextResponse.json({ ok: true, points: row.points, completedNow: row.completed_now });
 }

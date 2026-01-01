@@ -4,8 +4,12 @@ export type NicknameValidationResult =
 
 export function validateNickname(input: unknown): NicknameValidationResult {
   if (typeof input !== "string") return { ok: false, error: "INVALID_NICKNAME" };
-  const nickname = input.trim();
-  if (!/^[A-Za-z0-9_]{3,16}$/.test(nickname)) return { ok: false, error: "INVALID_NICKNAME" };
+  const nickname = input.trim().replace(/\s+/g, " ");
+  if (
+    !/^(?=.{3,24}$)(?=.*[\p{L}\p{N}])[\p{L}\p{N}_ -]+$/u.test(nickname)
+  ) {
+    return { ok: false, error: "INVALID_NICKNAME" };
+  }
   return { ok: true, nickname };
 }
 
@@ -37,4 +41,10 @@ export function validateUuid(input: unknown): input is string {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     input.trim()
   );
+}
+
+export function validateRoomCode(input: unknown): input is string {
+  if (typeof input !== "string") return false;
+  const code = input.trim();
+  return /^[A-Z0-9]{4,10}$/.test(code);
 }
