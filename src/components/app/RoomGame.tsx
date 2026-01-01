@@ -8,6 +8,7 @@ import { LeaderboardSection } from "@/components/app/LeaderboardSection";
 
 type Player = { id: string; nickname: string; points: number; room_id?: string };
 type RoomPlayer = { id: string; nickname: string; points: number };
+type RoomInfo = { id?: string; code?: string; name?: string | null };
 
 function getStoredSessionToken(): string | null {
   try {
@@ -59,6 +60,10 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
   const [booting, setBooting] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [roomPlayers, setRoomPlayers] = useState<RoomPlayer[]>([]);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [roomName, setRoomName] = useState<string>("");
+  const [ownerNickname, setOwnerNickname] = useState<string>("");
 
   const authHeaders: Record<string, string> = useMemo(() => {
     const token = sessionToken ?? getStoredSessionToken();
@@ -136,6 +141,24 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
   }, [refreshMe]);
 
   useEffect(() => {
+    (async () => {
+      const info = await fetchJson<{ ok: true; room: RoomInfo }>(`/api/rooms/info?code=${encodeURIComponent(roomCode)}`, { cache: "no-store" });
+      if (info.ok) {
+        const n = (info.data as any)?.room?.name;
+        if (typeof n === "string" && n.trim()) setRoomName(n.trim());
+      }
+
+      const owner = await fetchJson<{ ok: true; owner: { nickname: string } }>(`/api/rooms/owner?code=${encodeURIComponent(roomCode)}`, {
+        cache: "no-store"
+      });
+      if (owner.ok) {
+        const nick = (owner.data as any)?.owner?.nickname;
+        if (typeof nick === "string" && nick.trim()) setOwnerNickname(nick.trim());
+      }
+    })();
+  }, [roomCode]);
+
+  useEffect(() => {
     if (!player) return;
     refreshChallenges().catch(() => {});
   }, [player, refreshChallenges]);
@@ -195,6 +218,40 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
     clearStoredSessionToken();
   }, []);
 
+  const leaveRoom = useCallback(async () => {
+    setError(null);
+    const res = await fetchJson<{ ok: true }>("/api/rooms/leave", {
+      method: "POST",
+      headers: { ...authHeaders }
+    });
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+
+    setShowLeaveConfirm(false);
+    onNeedsAuthReset();
+    window.location.href = "/";
+  }, [authHeaders, onNeedsAuthReset]);
+
+  const closeRoom = useCallback(async () => {
+    setError(null);
+    const res = await fetchJson<{ ok: true }>("/api/rooms/close", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...authHeaders },
+      body: JSON.stringify({ code: roomCode })
+    });
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+
+    setShowCloseConfirm(false);
+    setShowLeaveConfirm(false);
+    onNeedsAuthReset();
+    window.location.href = "/";
+  }, [authHeaders, onNeedsAuthReset, roomCode]);
+
   const showPausedCard = paused && state !== "scheduled";
 
   return (
@@ -203,6 +260,7 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
         player={player ? { nickname: player.nickname, points: player.points } : null}
         nextBlockInSec={nextBlockInSec}
         paused={paused}
+        showGameStatus={state !== "scheduled"}
         onRetry={() => {
           setError(null);
           refreshMe().catch(() => {});
@@ -222,12 +280,134 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
         <JoinNickname disabled={booting} onJoined={onJoined} joinMode={{ type: "room", code: roomCode }} />
       ) : (
         <>
+          {showLeaveConfirm ? (
+            <section className="card" style={{ borderColor: "rgba(254, 202, 202, 0.35)" }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>¿Abandonar la partida?</h2>
+              <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
+                Se borrarán tus datos: sesión, retos asignados y media subida.
+              </p>
+              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <button
+                  onClick={() => leaveRoom()}
+                  style={{
+                    width: "100%",
+                    padding: "12px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(254, 202, 202, 0.35)",
+                    background: "rgba(239, 68, 68, 0.16)",
+                    color: "var(--text)",
+                    fontWeight: 900
+                  }}
+                >
+                  Sí, abandonar
+                </button>
+                <button
+                  onClick={() => setShowLeaveConfirm(false)}
+                  style={{
+                    width: "100%",
+                    padding: "12px 12px",
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "var(--text)",
+                    fontWeight: 900
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {showCloseConfirm ? (
+            <section className="card" style={{ borderColor: "rgba(254, 202, 202, 0.35)" }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>¿Cerrar la sala?</h2>
+              <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
+                Esto borrará toda la información de todos los jugadores (sesiones, retos y media) y eliminará la sala.
+              </p>
+              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <button
+                  onClick={() => closeRoom()}
+                  style={{
+                    width: "100%",
+                    padding: "12px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(254, 202, 202, 0.35)",
+                    background: "rgba(239, 68, 68, 0.16)",
+                    color: "var(--text)",
+                    fontWeight: 900
+                  }}
+                >
+                  Sí, cerrar sala
+                </button>
+                <button
+                  onClick={() => setShowCloseConfirm(false)}
+                  style={{
+                    width: "100%",
+                    padding: "12px 12px",
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "var(--text)",
+                    fontWeight: 900
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {state !== "scheduled" ? (
+            <section className="card">
+              <h2 style={{ margin: 0, fontSize: 18 }}>Opciones</h2>
+              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                {isOwner ? (
+                  <button
+                    onClick={() => setShowCloseConfirm(true)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(254, 202, 202, 0.35)",
+                      background: "rgba(239, 68, 68, 0.12)",
+                      color: "var(--text)",
+                      fontWeight: 900
+                    }}
+                  >
+                    Cerrar sala (borrar todo)
+                  </button>
+                ) : null}
+                <button
+                  onClick={() => setShowLeaveConfirm(true)}
+                  style={{
+                    width: "100%",
+                    padding: "12px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(254, 202, 202, 0.35)",
+                    background: "rgba(239, 68, 68, 0.10)",
+                    color: "var(--text)",
+                    fontWeight: 900
+                  }}
+                >
+                  Abandonar (borrar mis datos)
+                </button>
+              </div>
+            </section>
+          ) : null}
           {state === "scheduled" ? (
             <section className="card">
-              <h2 style={{ margin: 0, fontSize: 18 }}>Aún no empieza</h2>
+              <h2 style={{ margin: 0, fontSize: 18 }}>{isOwner ? "Aún no empieza" : roomName || `Sala ${roomCode}`}</h2>
               <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
-                Espera al inicio o pide al host que pulse “Empezar ahora”.
+                {isOwner ? "Espera al inicio o pide al host que pulse “Empezar ahora”." : "Estás en la sala de espera."}
               </p>
+              {!isOwner ? (
+                <div className="row" style={{ marginTop: 10 }}>
+                  <span className="pill">
+                    <strong>Admin</strong> {ownerNickname || "—"}
+                  </span>
+                </div>
+              ) : null}
               <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
                 <div style={{ color: "var(--muted)", fontSize: 13, fontWeight: 900 }}>Jugadores ({roomPlayers.length})</div>
                 {roomPlayers.length === 0 ? (
@@ -270,10 +450,27 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
                   Empezar ahora
                 </button>
               ) : null}
+              {!isOwner ? (
+                <button
+                  onClick={() => setShowLeaveConfirm(true)}
+                  style={{
+                    marginTop: 10,
+                    width: "100%",
+                    padding: "12px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(254, 202, 202, 0.35)",
+                    background: "rgba(239, 68, 68, 0.10)",
+                    color: "var(--text)",
+                    fontWeight: 900
+                  }}
+                >
+                  Abandonar
+                </button>
+              ) : null}
             </section>
           ) : null}
 
-          {state === "ended" ? (
+          {state !== "scheduled" && state === "ended" ? (
             <section className="card">
               <h2 style={{ margin: 0, fontSize: 18 }}>Partida terminada</h2>
               <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
@@ -282,7 +479,7 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
             </section>
           ) : null}
 
-          {showPausedCard ? (
+          {state !== "scheduled" && showPausedCard ? (
             <section className="card">
               <h2 style={{ margin: 0, fontSize: 18 }}>Juego en pausa</h2>
               <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
@@ -291,19 +488,23 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
             </section>
           ) : null}
 
-          <ChallengesSection
-            authHeaders={authHeaders}
-            blockStart={blockStart}
-            onPointsUpdate={onPointsUpdate}
-            onNeedsAuthReset={onNeedsAuthReset}
-            onRefreshAll={() => refreshChallenges()}
-          />
+          {state !== "scheduled" ? (
+            <>
+              <ChallengesSection
+                authHeaders={authHeaders}
+                blockStart={blockStart}
+                onPointsUpdate={onPointsUpdate}
+                onNeedsAuthReset={onNeedsAuthReset}
+                onRefreshAll={() => refreshChallenges()}
+              />
 
-          <LeaderboardSection
-            authHeaders={authHeaders}
-            onNeedsAuthReset={onNeedsAuthReset}
-            refreshSignal={`${player.points}:${blockStart ?? ""}`}
-          />
+              <LeaderboardSection
+                authHeaders={authHeaders}
+                onNeedsAuthReset={onNeedsAuthReset}
+                refreshSignal={`${player.points}:${blockStart ?? ""}`}
+              />
+            </>
+          ) : null}
         </>
       )}
     </>

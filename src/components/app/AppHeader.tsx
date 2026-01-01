@@ -15,11 +15,13 @@ export function AppHeader({
   player,
   nextBlockInSec,
   paused,
+  showGameStatus = true,
   onRetry
 }: {
   player: Player | null;
   nextBlockInSec: number;
   paused: boolean;
+  showGameStatus?: boolean;
   onRetry: () => void;
 }) {
   const countdown = useMemo(() => formatMMSS(nextBlockInSec), [nextBlockInSec]);
@@ -41,11 +43,13 @@ export function AppHeader({
         </div>
 
         <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
-          <div className="pill">
-            <strong>Próximos retos</strong> {countdown}
-          </div>
+          {showGameStatus ? (
+            <div className="pill">
+              <strong>Próximos retos</strong> {countdown}
+            </div>
+          ) : null}
           <div className="row" style={{ justifyContent: "flex-end" }}>
-            {paused ? (
+            {showGameStatus && paused ? (
               <span className="pill" style={{ borderColor: "rgba(250, 204, 21, 0.35)" }}>
                 <strong>PAUSA</strong>
               </span>
@@ -69,4 +73,3 @@ export function AppHeader({
     </section>
   );
 }
-
