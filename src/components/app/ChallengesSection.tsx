@@ -199,7 +199,6 @@ export function ChallengesSection({
                 <input
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   disabled={c.completed || uploadingId === c.id}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -232,7 +231,6 @@ export function ChallengesSection({
                 <input
                   type="file"
                   accept="video/*"
-                  capture="environment"
                   disabled={c.completed || uploadingId === c.id}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
