@@ -20,17 +20,23 @@ async function fetchJson<T>(
 
 export default function RoomPage() {
   const params = useParams<{ code: string }>();
-  const code = (params?.code ?? "").toUpperCase();
+  const rawCode = (params as any)?.code;
+  const code = (Array.isArray(rawCode) ? rawCode[0] : rawCode ?? "").toUpperCase();
   const [roomExists, setRoomExists] = useState<boolean | null>(null);
   const [needsSwitch, setNeedsSwitch] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const title = useMemo(() => `Sala ${code}`, [code]);
 
   useEffect(() => {
+    if (!/^[A-Z0-9]{4,10}$/.test(code)) return;
     (async () => {
       const res = await fetchJson<{ ok: true; room: any }>(`/api/rooms/info?code=${encodeURIComponent(code)}`);
       setRoomExists(res.ok);
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (res.error && res.error !== "ROOM_NOT_FOUND") setLoadError(res.error);
+        return;
+      }
 
       const me = await fetchJson<{ ok: true; player: { room_id: string } }>("/api/me", { cache: "no-store" });
       if (!me.ok) return;
@@ -42,11 +48,28 @@ export default function RoomPage() {
     })();
   }, [code]);
 
+  if (code && !/^[A-Z0-9]{4,10}$/.test(code)) {
+    return (
+      <section className="card">
+        <h1 style={{ margin: 0, fontSize: 22 }}>Código inválido</h1>
+        <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
+          El enlace de la sala no es válido.
+        </p>
+      </section>
+    );
+  }
+
   if (roomExists === false) {
     return (
       <section className="card">
         <h1 style={{ margin: 0, fontSize: 22 }}>{title}</h1>
-        <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>Sala no encontrada.</p>
+        {loadError ? (
+          <p style={{ margin: "8px 0 0", color: "#fecaca", lineHeight: 1.5 }}>
+            Error: <strong>{loadError}</strong>
+          </p>
+        ) : (
+          <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>Sala no encontrada.</p>
+        )}
       </section>
     );
   }
