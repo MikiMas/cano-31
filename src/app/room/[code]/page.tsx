@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { RoomGame } from "@/components/app/RoomGame";
+import { JoinNickname } from "@/components/app/JoinNickname";
+import Image from "next/image";
+import { LoadingScreen } from "@/components/app/LoadingScreen";
 
 async function fetchJson<T>(
   input: RequestInfo | URL,
@@ -20,31 +23,52 @@ async function fetchJson<T>(
 
 export default function RoomPage() {
   const params = useParams<{ code: string }>();
+  const searchParams = useSearchParams();
   const rawCode = (params as any)?.code;
   const code = (Array.isArray(rawCode) ? rawCode[0] : rawCode ?? "").toUpperCase();
   const [roomExists, setRoomExists] = useState<boolean | null>(null);
   const [needsSwitch, setNeedsSwitch] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [roomName, setRoomName] = useState<string>("");
+  const [meOk, setMeOk] = useState<boolean | null>(null);
+  const [loadingDecision, setLoadingDecision] = useState(true);
 
   const title = useMemo(() => `Sala ${code}`, [code]);
+  const from = useMemo(() => {
+    const v = searchParams?.get("from") ?? "";
+    return v.trim();
+  }, [searchParams]);
 
   useEffect(() => {
     if (!/^[A-Z0-9]{4,10}$/.test(code)) return;
     (async () => {
+      setLoadingDecision(true);
       const res = await fetchJson<{ ok: true; room: any }>(`/api/rooms/info?code=${encodeURIComponent(code)}`);
       setRoomExists(res.ok);
       if (!res.ok) {
         if (res.error && res.error !== "ROOM_NOT_FOUND") setLoadError(res.error);
+        setMeOk(null);
+        setNeedsSwitch(false);
+        setLoadingDecision(false);
         return;
       }
+      const n = (res.data as any)?.room?.name;
+      if (typeof n === "string") setRoomName(n.trim());
 
       const me = await fetchJson<{ ok: true; player: { room_id: string } }>("/api/me", { cache: "no-store" });
-      if (!me.ok) return;
+      if (!me.ok) {
+        setMeOk(false);
+        setNeedsSwitch(false);
+        setLoadingDecision(false);
+        return;
+      }
+      setMeOk(true);
       const myRoomId = (me.data as any)?.player?.room_id;
       const roomId = (res.data as any)?.room?.id;
       if (myRoomId && roomId && myRoomId !== roomId) {
         setNeedsSwitch(true);
       }
+      setLoadingDecision(false);
     })();
   }, [code]);
 
@@ -72,6 +96,10 @@ export default function RoomPage() {
         )}
       </section>
     );
+  }
+
+  if (roomExists === null || loadingDecision) {
+    return <LoadingScreen title="Cargando invitación…" />;
   }
 
   if (needsSwitch) {
@@ -103,6 +131,49 @@ export default function RoomPage() {
           Cambiar a esta sala
         </button>
       </section>
+    );
+  }
+
+  if (roomExists === true && meOk === false) {
+    return (
+      <>
+        <section className="card coverCard">
+          <div className="coverTitle">
+            <div className="brandHero" style={{ fontSize: 26 }}>
+              Pikudo
+            </div>
+            <div style={{ marginTop: 6, color: "var(--muted)", lineHeight: 1.4, fontWeight: 700 }}>
+              {from ? (
+                <>
+                  <strong style={{ color: "var(--text)" }}>{from}</strong> te ha invitado a{" "}
+                  <strong style={{ color: "var(--text)" }}>{roomName || title}</strong>.
+                </>
+              ) : (
+                <>Te han invitado a <strong style={{ color: "var(--text)" }}>{roomName || title}</strong>.</>
+              )}
+            </div>
+          </div>
+
+          <div className="coverMedia" aria-hidden="true">
+            <Image
+              src="/foto_portada.png"
+              alt=""
+              width={1248}
+              height={542}
+              priority
+              sizes="(max-width: 920px) 100vw, 920px"
+              style={{ width: "100%", height: "auto" }}
+            />
+          </div>
+        </section>
+
+        <JoinNickname
+          joinMode={{ type: "room", code }}
+          onJoined={() => {
+            window.location.href = `/room/${encodeURIComponent(code)}`;
+          }}
+        />
+      </>
     );
   }
 

@@ -16,12 +16,16 @@ export function AppHeader({
   nextBlockInSec,
   paused,
   showGameStatus = true,
+  showPlayerStats = true,
+  showRefresh = true,
   onRetry
 }: {
   player: Player | null;
   nextBlockInSec: number;
   paused: boolean;
   showGameStatus?: boolean;
+  showPlayerStats?: boolean;
+  showRefresh?: boolean;
   onRetry: () => void;
 }) {
   const countdown = useMemo(() => formatMMSS(nextBlockInSec), [nextBlockInSec]);
@@ -31,15 +35,17 @@ export function AppHeader({
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div style={{ display: "grid", gap: 4 }}>
           <div style={{ fontWeight: 800, fontSize: 18 }}>{player ? player.nickname : "Pikudo"}</div>
-          <div style={{ color: "var(--muted)", fontSize: 13 }}>
-            {player ? (
-              <>
-                Puntos: <strong style={{ color: "var(--text)" }}>{player.points}</strong>
-              </>
-            ) : (
-              "Accede con tu nickname"
-            )}
-          </div>
+          {showPlayerStats ? (
+            <div style={{ color: "var(--muted)", fontSize: 13 }}>
+              {player ? (
+                <>
+                  Puntos: <strong style={{ color: "var(--text)" }}>{player.points}</strong>
+                </>
+              ) : (
+                "Accede con tu nickname"
+              )}
+            </div>
+          ) : null}
         </div>
 
         <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
@@ -54,19 +60,21 @@ export function AppHeader({
                 <strong>PAUSA</strong>
               </span>
             ) : null}
-            <button
-              onClick={onRetry}
-              style={{
-                padding: "8px 10px",
-                borderRadius: 12,
-                border: "1px solid var(--border)",
-                background: "var(--field-bg)",
-                color: "var(--text)",
-                fontWeight: 700
-              }}
-            >
-              Refrescar
-            </button>
+            {showRefresh ? (
+              <button
+                onClick={onRetry}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 12,
+                  border: "1px solid var(--border)",
+                  background: "var(--field-bg)",
+                  color: "var(--text)",
+                  fontWeight: 700
+                }}
+              >
+                Refrescar
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

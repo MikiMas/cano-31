@@ -5,6 +5,7 @@ import { AppHeader } from "@/components/app/AppHeader";
 import { JoinNickname } from "@/components/app/JoinNickname";
 import { ChallengesSection } from "@/components/app/ChallengesSection";
 import { LeaderboardSection } from "@/components/app/LeaderboardSection";
+import { LoadingScreen } from "@/components/app/LoadingScreen";
 
 type Player = { id: string; nickname: string; points: number; room_id?: string };
 type RoomPlayer = { id: string; nickname: string; points: number };
@@ -62,6 +63,7 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
   const [roomPlayers, setRoomPlayers] = useState<RoomPlayer[]>([]);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [showTransferConfirm, setShowTransferConfirm] = useState(false);
   const [roomName, setRoomName] = useState<string>("");
   const [ownerNickname, setOwnerNickname] = useState<string>("");
 
@@ -252,7 +254,25 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
     window.location.href = "/";
   }, [authHeaders, onNeedsAuthReset, roomCode]);
 
+  const transferAndLeaveRoom = useCallback(async () => {
+    setError(null);
+    const res = await fetchJson<{ ok: true; closed?: boolean; newOwnerId?: string }>("/api/rooms/leave-transfer", {
+      method: "POST",
+      headers: { ...authHeaders }
+    });
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+
+    setShowTransferConfirm(false);
+    onNeedsAuthReset();
+    window.location.href = "/";
+  }, [authHeaders, onNeedsAuthReset]);
+
   const showPausedCard = paused && state !== "scheduled";
+
+  if (booting) return <LoadingScreen title="Cargando sala…" />;
 
   return (
     <>
@@ -261,6 +281,8 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
         nextBlockInSec={nextBlockInSec}
         paused={paused}
         showGameStatus={state !== "scheduled"}
+        showPlayerStats={state !== "scheduled"}
+        showRefresh={state !== "scheduled"}
         onRetry={() => {
           setError(null);
           refreshMe().catch(() => {});
@@ -358,6 +380,45 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
             </section>
           ) : null}
 
+          {showTransferConfirm ? (
+            <section className="card" style={{ borderColor: "rgba(254, 202, 202, 0.35)" }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>¿Abandonar y transferir liderazgo?</h2>
+              <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
+                Saldrás de la sala y se borrarán tus datos. El siguiente jugador pasará a ser el líder.
+              </p>
+              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <button
+                  onClick={() => transferAndLeaveRoom()}
+                  style={{
+                    width: "100%",
+                    padding: "12px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(254, 202, 202, 0.35)",
+                    background: "rgba(239, 68, 68, 0.16)",
+                    color: "var(--text)",
+                    fontWeight: 900
+                  }}
+                >
+                  Sí, abandonar
+                </button>
+                <button
+                  onClick={() => setShowTransferConfirm(false)}
+                  style={{
+                    width: "100%",
+                    padding: "12px 12px",
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "var(--text)",
+                    fontWeight: 900
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </section>
+          ) : null}
+
           {state !== "scheduled" ? (
             <section className="card">
               <h2 style={{ margin: 0, fontSize: 18 }}>Opciones</h2>
@@ -378,20 +439,37 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
                     Cerrar sala (borrar todo)
                   </button>
                 ) : null}
-                <button
-                  onClick={() => setShowLeaveConfirm(true)}
-                  style={{
-                    width: "100%",
-                    padding: "12px 12px",
-                    borderRadius: 12,
-                    border: "1px solid rgba(254, 202, 202, 0.35)",
-                    background: "rgba(239, 68, 68, 0.10)",
-                    color: "var(--text)",
-                    fontWeight: 900
-                  }}
-                >
-                  Abandonar (borrar mis datos)
-                </button>
+                {isOwner ? (
+                  <button
+                    onClick={() => setShowTransferConfirm(true)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(254, 202, 202, 0.35)",
+                      background: "rgba(239, 68, 68, 0.10)",
+                      color: "var(--text)",
+                      fontWeight: 900
+                    }}
+                  >
+                    Abandonar (transferir liderazgo)
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowLeaveConfirm(true)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(254, 202, 202, 0.35)",
+                      background: "rgba(239, 68, 68, 0.10)",
+                      color: "var(--text)",
+                      fontWeight: 900
+                    }}
+                  >
+                    Abandonar (borrar mis datos)
+                  </button>
+                )}
               </div>
             </section>
           ) : null}
@@ -422,33 +500,48 @@ export function RoomGame({ roomCode }: { roomCode: string }) {
                 )}
               </div>
               {isOwner ? (
-                <button
-                  onClick={async () => {
-                    setError(null);
-                    const res = await fetchJson<{ ok: true; startsAt: string; endsAt: string }>("/api/rooms/start", {
-                      method: "POST",
-                      headers: { "content-type": "application/json", ...authHeaders },
-                      body: JSON.stringify({ code: roomCode })
-                    });
-                    if (!res.ok) {
-                      setError(res.error);
-                      return;
-                    }
-                    await refreshChallenges();
-                  }}
-                  style={{
-                    marginTop: 12,
-                    width: "100%",
-                    padding: "12px 12px",
-                    borderRadius: 12,
-                    border: "1px solid var(--border)",
-                    background: "rgba(34, 197, 94, 0.18)",
-                    color: "var(--text)",
-                    fontWeight: 900
-                  }}
-                >
-                  Empezar ahora
-                </button>
+                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                  <button
+                    onClick={async () => {
+                      setError(null);
+                      const res = await fetchJson<{ ok: true; startsAt: string; endsAt: string }>("/api/rooms/start", {
+                        method: "POST",
+                        headers: { "content-type": "application/json", ...authHeaders },
+                        body: JSON.stringify({ code: roomCode })
+                      });
+                      if (!res.ok) {
+                        setError(res.error);
+                        return;
+                      }
+                      await refreshChallenges();
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "12px 12px",
+                      borderRadius: 12,
+                      border: "1px solid var(--border)",
+                      background: "rgba(34, 197, 94, 0.18)",
+                      color: "var(--text)",
+                      fontWeight: 900
+                    }}
+                  >
+                    Empezar ahora
+                  </button>
+                  <button
+                    onClick={() => setShowCloseConfirm(true)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(254, 202, 202, 0.35)",
+                      background: "rgba(239, 68, 68, 0.12)",
+                      color: "var(--text)",
+                      fontWeight: 900
+                    }}
+                  >
+                    Cerrar sala (borrar todo)
+                  </button>
+                </div>
               ) : null}
               {!isOwner ? (
                 <button

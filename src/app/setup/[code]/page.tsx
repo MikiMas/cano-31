@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { LoadingScreen } from "@/components/app/LoadingScreen";
 
 async function fetchJson<T>(
   input: RequestInfo | URL,
@@ -28,16 +29,24 @@ export default function SetupRoomPage() {
   const [error, setError] = useState<string | null>(null);
   const [shareNotSupported, setShareNotSupported] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [inviter, setInviter] = useState<string>("");
+  const [ready, setReady] = useState(false);
 
   const inviteLink = useMemo(() => {
     if (!code) return "";
     if (typeof window === "undefined") return "";
-    return `${window.location.origin}/room/${code}`;
-  }, [code]);
+    const url = new URL(`${window.location.origin}/room/${code}`);
+    const from = inviter.trim();
+    if (from) url.searchParams.set("from", from);
+    return url.toString();
+  }, [code, inviter]);
 
   useEffect(() => {
     try {
       setRoomName(localStorage.getItem("draft.roomName") ?? "");
+    } catch {}
+    try {
+      setInviter(localStorage.getItem("draft.nickname") ?? "");
     } catch {}
 
     try {
@@ -50,10 +59,15 @@ export default function SetupRoomPage() {
   useEffect(() => {
     if (!code) return;
     (async () => {
+      setReady(false);
       const res = await fetchJson<{ ok: true; room: { name: string | null } }>(`/api/rooms/info?code=${encodeURIComponent(code)}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        setReady(true);
+        return;
+      }
       const n = (res.data as any)?.room?.name;
       if (typeof n === "string") setRoomName(n.trim());
+      setReady(true);
     })();
   }, [code]);
 
@@ -134,6 +148,8 @@ export default function SetupRoomPage() {
       setSaving(false);
     }
   }
+
+  if (!ready) return <LoadingScreen title="Cargando configuración…" />;
 
   return (
     <>
@@ -263,4 +279,3 @@ export default function SetupRoomPage() {
     </>
   );
 }
-
