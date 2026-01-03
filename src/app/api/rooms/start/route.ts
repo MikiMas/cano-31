@@ -60,7 +60,10 @@ export async function POST(req: Request) {
     .eq("id", room.id);
   if (updateError) return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
 
-  await supabase.from("room_settings").update({ game_started_at: newStarts }).eq("room_id", room.id);
+  // Ensure the settings row exists; `/api/challenges` relies on `game_started_at`.
+  await supabase
+    .from("room_settings")
+    .upsert({ room_id: room.id, game_status: "running", game_started_at: newStarts }, { onConflict: "room_id" });
 
   return NextResponse.json({ ok: true, startsAt: newStarts, endsAt: newEnds });
 }
