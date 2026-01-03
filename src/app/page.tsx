@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 
 async function fetchJson<T>(
@@ -19,25 +19,15 @@ async function fetchJson<T>(
 
 export default function LandingPage() {
   const [nickname, setNickname] = useState("");
-  const [roomName, setRoomName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const placeholderName = useMemo(() => {
-    const d = new Date();
-    return `Pikudo ${d.getFullYear()}`;
-  }, []);
-
-  async function onContinue() {
+  async function onCreateRoom() {
     setLoading(true);
     setError(null);
     try {
       if (!nickname.trim()) {
         setError("Pon tu nickname");
-        return;
-      }
-      if (!roomName.trim()) {
-        setError("Pon el nombre de la sala");
         return;
       }
 
@@ -48,7 +38,7 @@ export default function LandingPage() {
       }>("/api/rooms/create", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ nickname, roomName, rounds: 4 })
+        body: JSON.stringify({ nickname, rounds: 4 })
       });
       if (!res.ok) {
         setError(res.error);
@@ -58,7 +48,6 @@ export default function LandingPage() {
       try {
         localStorage.setItem("st", res.data.sessionToken);
         localStorage.setItem("draft.nickname", nickname.trim());
-        localStorage.setItem("draft.roomName", roomName.trim());
       } catch {}
 
       window.location.href = `/setup/${encodeURIComponent(res.data.room.code)}`;
@@ -92,24 +81,20 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="card">
-        <h1 style={{ margin: 0, fontSize: 22 }}>Crear sala</h1>
-        <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
-          Escribe tu nickname y el nombre de la sala. En el siguiente paso eliges el horario y podrás invitar con un
-          enlace.
-        </p>
-      </section>
-
       {error ? (
         <section className="card" style={{ borderColor: "rgba(254, 202, 202, 0.35)" }}>
-          <div style={{ color: "#fecaca", fontSize: 14 }}>
+          <div style={{ color: "var(--danger)", fontSize: 14 }}>
             Error: <strong>{error}</strong>
           </div>
         </section>
       ) : null}
 
       <section className="card">
-        <h2 style={{ margin: 0, fontSize: 18 }}>Tu nickname</h2>
+        <h1 style={{ margin: 0, fontSize: 22 }}>Crear sala</h1>
+        <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
+          Elige tu nickname. En el siguiente paso configurarás el nombre de la sala y podrás invitar con un enlace.
+        </p>
+
         <input
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
@@ -119,7 +104,7 @@ export default function LandingPage() {
           spellCheck={false}
           disabled={loading}
           style={{
-            marginTop: 10,
+            marginTop: 12,
             width: "100%",
             padding: "12px 12px",
             borderRadius: 12,
@@ -129,32 +114,13 @@ export default function LandingPage() {
             outline: "none"
           }}
         />
+
         <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.4, fontSize: 13 }}>
           3-24 caracteres. Letras/números, espacios, _ o -.
         </p>
-      </section>
 
-      <section className="card">
-        <h2 style={{ margin: 0, fontSize: 18 }}>Nombre de la sala</h2>
-        <input
-          value={roomName}
-          onChange={(e) => setRoomName(e.target.value)}
-          placeholder={placeholderName}
-          disabled={loading}
-          style={{
-            marginTop: 10,
-            width: "100%",
-            padding: "12px 12px",
-            borderRadius: 12,
-            border: "1px solid var(--border)",
-            background: "var(--field-bg)",
-            color: "var(--text)",
-            outline: "none",
-            fontWeight: 900
-          }}
-        />
         <button
-          onClick={onContinue}
+          onClick={onCreateRoom}
           disabled={loading}
           style={{
             marginTop: 12,
@@ -167,9 +133,10 @@ export default function LandingPage() {
             fontWeight: 900
           }}
         >
-          {loading ? "..." : "Continuar"}
+          {loading ? "..." : "Crear sala"}
         </button>
       </section>
     </>
   );
 }
+

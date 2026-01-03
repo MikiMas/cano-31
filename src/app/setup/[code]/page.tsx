@@ -27,6 +27,7 @@ export default function SetupRoomPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [shareNotSupported, setShareNotSupported] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const inviteLink = useMemo(() => {
     if (!code) return "";
@@ -52,7 +53,7 @@ export default function SetupRoomPage() {
       const res = await fetchJson<{ ok: true; room: { name: string | null } }>(`/api/rooms/info?code=${encodeURIComponent(code)}`);
       if (!res.ok) return;
       const n = (res.data as any)?.room?.name;
-      if (typeof n === "string" && n.trim()) setRoomName(n.trim());
+      if (typeof n === "string") setRoomName(n.trim());
     })();
   }, [code]);
 
@@ -111,19 +112,41 @@ export default function SetupRoomPage() {
     await copyInvite();
   }
 
+  async function saveRoomName() {
+    setSaving(true);
+    setError(null);
+    try {
+      const name = roomName.trim();
+      const res = await fetchJson<{ ok: true; room: { code: string; name: string } }>("/api/rooms/rename", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code, name })
+      });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+
+      try {
+        localStorage.setItem("draft.roomName", name);
+      } catch {}
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <>
       <section className="card">
-        <h1 style={{ margin: 0, fontSize: 22 }}>Ajustes de la sala</h1>
+        <h1 style={{ margin: 0, fontSize: 22 }}>Configurar sala</h1>
         <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.5 }}>
-          Comparte el enlace para que tus amigos entren y elijan su nickname. Cuando estéis listos, entra a la sala y
-          pulsa “Empezar ahora”.
+          Ponle un nombre, comparte el enlace y entra a la sala cuando estéis listos.
         </p>
       </section>
 
       {error ? (
         <section className="card" style={{ borderColor: "rgba(254, 202, 202, 0.35)" }}>
-          <div style={{ color: "#fecaca", fontSize: 14 }}>
+          <div style={{ color: "var(--danger)", fontSize: 14 }}>
             Error: <strong>{error}</strong>
           </div>
         </section>
@@ -131,13 +154,43 @@ export default function SetupRoomPage() {
 
       <section className="card">
         <h2 style={{ margin: 0, fontSize: 18 }}>Sala</h2>
-        <div className="row" style={{ marginTop: 10 }}>
-          <span className="pill">
-            <strong>Nombre</strong> {roomName || "—"}
+        <input
+          value={roomName}
+          onChange={(e) => setRoomName(e.target.value)}
+          placeholder={`Pikudo ${new Date().getFullYear()}`}
+          disabled={saving}
+          style={{
+            marginTop: 10,
+            width: "100%",
+            padding: "12px 12px",
+            borderRadius: 12,
+            border: "1px solid var(--border)",
+            background: "var(--field-bg)",
+            color: "var(--text)",
+            outline: "none",
+            fontWeight: 900
+          }}
+        />
+        <div className="row" style={{ marginTop: 10, justifyContent: "space-between", alignItems: "stretch" }}>
+          <span className="pill" style={{ flex: 1, justifyContent: "space-between" }}>
+            <strong>Código</strong> {code || ""}
           </span>
-          <span className="pill">
-            <strong>Código</strong> {code || "—"}
-          </span>
+          <button
+            onClick={saveRoomName}
+            disabled={saving || !roomName.trim()}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid var(--border)",
+              background: "var(--field-bg-strong)",
+              color: "var(--text)",
+              fontWeight: 900,
+              opacity: saving || !roomName.trim() ? 0.7 : 1,
+              whiteSpace: "nowrap"
+            }}
+          >
+            {saving ? "Guardando..." : "Guardar nombre"}
+          </button>
         </div>
       </section>
 
@@ -154,7 +207,7 @@ export default function SetupRoomPage() {
               padding: "12px 12px",
               borderRadius: 12,
               border: "1px solid var(--border)",
-              background: "rgba(59, 130, 246, 0.18)",
+              background: "var(--field-bg-strong)",
               color: "var(--text)",
               fontWeight: 900
             }}
@@ -167,7 +220,7 @@ export default function SetupRoomPage() {
               padding: "12px 12px",
               borderRadius: 12,
               border: "1px solid var(--border)",
-              background: "rgba(34, 197, 94, 0.18)",
+              background: "rgba(244, 247, 245, 0.06)",
               color: "var(--text)",
               fontWeight: 900
             }}
@@ -182,7 +235,7 @@ export default function SetupRoomPage() {
               padding: "12px 12px",
               borderRadius: 12,
               border: "1px solid var(--border)",
-              background: "rgba(255,255,255,0.06)",
+              background: "rgba(244, 247, 245, 0.06)",
               color: "var(--text)",
               fontWeight: 900
             }}

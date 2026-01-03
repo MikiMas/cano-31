@@ -74,7 +74,7 @@ a {
 }
 
 .container {
-  max-width: 920px;
+  max-width: 720px;
   margin: 0 auto;
   padding: clamp(14px, 3.5vw, 24px);
   position: relative;
@@ -220,6 +220,13 @@ a {
   }
   .nav {
     font-size: 15px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    max-width: 620px;
+    padding: 22px;
   }
 }
 
