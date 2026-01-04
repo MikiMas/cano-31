@@ -140,7 +140,7 @@ export default function RoomPage() {
         <section className="card coverCard">
           <div className="coverTitle">
             <div className="brandHero" style={{ fontSize: 26 }}>
-              Pikudo
+              PIKUDO
             </div>
             <div style={{ marginTop: 6, color: "var(--muted)", lineHeight: 1.4, fontWeight: 700 }}>
               {from ? (

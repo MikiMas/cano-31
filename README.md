@@ -1,4 +1,4 @@
-# CANOO
+# PIKUDO
 
 Next.js (App Router) + TypeScript + Supabase (solo backend) listo para Vercel.
 

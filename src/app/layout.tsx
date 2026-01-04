@@ -4,7 +4,7 @@ import "./globals.css";
 import { InfoHelp } from "@/components/app/InfoHelp";
 import { AdSlot } from "@/components/app/AdSlot";
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Pikudo";
+const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "PIKUDO";
 const adsenseClientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID ?? "";
 const adsenseMobileBottomSlot = process.env.NEXT_PUBLIC_ADSENSE_SLOT_MOBILE_BOTTOM ?? "";
 

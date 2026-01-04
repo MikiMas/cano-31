@@ -219,7 +219,7 @@ export default function SetupRoomPage() {
         <input
           value={roomName}
           onChange={(e) => setRoomName(e.target.value)}
-          placeholder={`Pikudo ${new Date().getFullYear()}`}
+          placeholder={`PIKUDO ${new Date().getFullYear()}`}
           disabled={saving}
           style={{
             marginTop: 10,

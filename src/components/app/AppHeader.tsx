@@ -34,7 +34,7 @@ export function AppHeader({
     <section className="card" style={{ marginTop: 16 }}>
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div style={{ display: "grid", gap: 4 }}>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>{player ? player.nickname : "Pikudo"}</div>
+          <div style={{ fontWeight: 800, fontSize: 18 }}>{player ? player.nickname : "PIKUDO"}</div>
           {showPlayerStats ? (
             <div style={{ color: "var(--muted)", fontSize: 13 }}>
               {player ? (
