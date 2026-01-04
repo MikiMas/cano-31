@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <InfoHelp />
           <main>{children}</main>
           <div className="adBelow" aria-label="Publicidad">
-            <AdSlot slot={adsenseMobileBottomSlot} className="card" />
+            <AdSlot slot={adsenseMobileBottomSlot} />
           </div>
           <footer className="footer">
             ЖИ {new Date().getFullYear()} {appName}
