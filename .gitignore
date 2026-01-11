@@ -1,8 +1,9 @@
-node_modules
 .next
-out
-.vercel
-.env
+node_modules
 .env.local
-.DS_Store
+apps/web/.next
+apps/web/node_modules
+apps/mobile/node_modules
+apps/mobile/.expo
+apps/mobile/web-build
 
